@@ -1,0 +1,30 @@
+{
+  "fuente": "https://storage.googleapis.com/earthengine-timelapse/2023/earth/20230206",
+  "credito": "Google Earth Timelapse (Google, Landsat, Copernicus)",
+  "fecha_de_preparacion": "2026-11-09",
+  "centro_vista_compartida": {
+    "latitud": -12.92888,
+    "longitud": -70.18091
+  },
+  "bordes_wgs84": {
+    "west": -70.5105972290039,
+    "south": -13.109573875806992,
+    "east": -69.8514175415039,
+    "north": -12.748185995058703
+  },
+  "proyeccion": "EPSG:3857",
+  "ancho_px": 1920,
+  "alto_px": 1080,
+  "zoom_de_fuente": 11,
+  "anios_video": [
+    1984,
+    2022
+  ],
+  "anios_png": [
+    2000,
+    2015,
+    2022
+  ],
+  "segundos_por_anio": 0.5,
+  "nota": "Recorte fijo centrado en el enlace; sin menus, rotulos ni interpolacion añadida."
+}

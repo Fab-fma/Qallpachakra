@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>El territorio respira — montaje</title>
+  <link rel="stylesheet" href="estilo.css">
+  <script defer src="ajustes.js"></script>
+  <script defer src="soplo_pcm.js"></script>
+  <script defer src="sonido.js"></script>
+  <script defer src="dano_datos.js"></script>
+  <script defer src="dano.js"></script>
+  <script defer src="textura.js"></script>
+  <script defer src="presencia.js"></script>
+  <script defer src="montaje.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <div><p class="kicker">Territorio / Cuerpo</p><h1>El territorio respira</h1></div>
+    <div class="view-selects">
+      <label class="scene-select" for="scene">Escena <select id="scene"><option value="all">Obra completa</option></select></label>
+      <label class="scene-select" for="layers">Capas <select id="layers">
+        <option value="full">Montaje completo</option>
+        <option value="growth">Mapa + crecimiento</option>
+        <option value="map">Solo mapa</option>
+      </select></label>
+    </div>
+  </header>
+  <div class="layout">
+    <section class="view" aria-label="Vista del montaje">
+      <div class="stage" id="stage" tabindex="-1" aria-label="Montaje del paisaje y la resonancia">
+        <div class="composition" id="composition">
+          <div class="world">
+            <video id="land" preload="auto" muted playsinline aria-label="Secuencia satelital"></video>
+            <canvas id="damage" class="damage" width="1280" height="720" aria-hidden="true" hidden></canvas>
+            <canvas id="grain" class="grain" width="768" height="432" aria-hidden="true" hidden></canvas>
+            <div class="shade" aria-hidden="true"></div>
+            <img id="mri" alt="Corte de una resonancia cerebral">
+            <div id="mri-focus" aria-hidden="true"><img id="mri-echo" alt=""></div>
+          </div>
+          <div class="year" id="year"></div>
+          <div class="credit" id="credit"></div>
+          <div class="curtain" aria-hidden="true"></div>
+          <div class="place" id="place" aria-hidden="true"></div>
+          <div class="presence-cue" id="presence-cue" hidden></div>
+        </div>
+      </div>
+      <div class="transport">
+        <button class="primary" id="play" disabled>Reproducir</button>
+        <div class="timeline"><label for="seek">Tiempo del montaje</label><input id="seek" type="range" min="0" max="66" step="0.05" value="0" disabled></div>
+        <output id="time">0,0 / 66,0 s</output>
+        <button id="project">Proyectar ↗</button>
+      </div>
+      <div class="chapter-bar">
+        <nav id="chapters" aria-label="Escenas de la obra"></nav>
+        <button id="restart" type="button">Reiniciar</button>
+      </div>
+      <div class="chapter-bar">
+        <button id="camera" type="button" aria-pressed="false">Activar cámara</button>
+        <button id="rehearsal" type="button" aria-pressed="false">Ensayar presencia</button>
+        <small id="presence-state" role="status">Control manual</small>
+      </div>
+      <p class="status" id="status" role="status">Cargando el video…</p>
+      <footer id="source-note"></footer>
+    </section>
+    <aside aria-label="Ajustes del montaje">
+      <p id="scene-label" class="scene-label"></p>
+      <div class="panel-switch">
+        <button id="show-image" type="button" aria-controls="image-panel" aria-pressed="true">Imagen</button>
+        <button id="show-filters" type="button" aria-controls="filters-panel" aria-pressed="false">Filtros</button>
+        <button id="show-time" type="button" aria-controls="time-panel" aria-pressed="false">Tiempo</button>
+        <button id="show-sound" type="button" aria-controls="sound-panel" aria-pressed="false">Sonido</button>
+      </div>
+      <div id="image-panel">
+        <fieldset>
+          <legend>Mapa</legend>
+          <label>Horizontal <output></output><input type="range" data-ajuste="mapa.x" min="15" max="85" data-unidad=" %" aria-label="Mapa horizontal"></label>
+          <label>Vertical <output></output><input type="range" data-ajuste="mapa.y" min="15" max="85" data-unidad=" %" aria-label="Mapa vertical"></label>
+          <label>Zoom <output></output><input type="range" data-ajuste="mapa.zoom" min="100" max="200" data-unidad=" %" aria-label="Zoom del mapa"></label>
+          <small>Si mueves el mapa más allá del margen, el zoom sube para cubrir los bordes.</small>
+        </fieldset>
+        <fieldset>
+          <legend>Resonancia</legend>
+          <label class="check"><input id="preview-mri" type="checkbox"> Mostrar para ajustar</label>
+          <label>Horizontal <output></output><input type="range" data-ajuste="mri.x" min="0" max="100" data-unidad=" %" aria-label="Resonancia horizontal"></label>
+          <label>Vertical <output></output><input type="range" data-ajuste="mri.y" min="0" max="100" data-unidad=" %" aria-label="Resonancia vertical"></label>
+          <label>Tamaño <output></output><input type="range" data-ajuste="mri.tamano" min="20" max="200" data-unidad=" %" aria-label="Tamaño de la resonancia"></label>
+          <label>Opacidad <output></output><input type="range" data-ajuste="mri.opacidad" min="0" max="100" data-unidad=" %" aria-label="Opacidad de la resonancia"></label>
+        </fieldset>
+      </div>
+      <div id="filters-panel" hidden>
+        <fieldset>
+          <legend>Desgaste del paisaje</legend>
+          <label class="check"><input id="preview-filters" type="checkbox"> Ver al máximo para ajustar</label>
+          <label>Saturación <output></output><input type="range" data-ajuste="filtros.saturacion" min="0" max="125" data-unidad=" %" aria-label="Saturación"></label>
+          <label>Brillo <output></output><input type="range" data-ajuste="filtros.brillo" min="40" max="125" data-unidad=" %" aria-label="Brillo"></label>
+          <label>Contraste <output></output><input type="range" data-ajuste="filtros.contraste" min="50" max="150" data-unidad=" %" aria-label="Contraste"></label>
+          <label>Empieza en <output></output><input type="range" data-ajuste="filtros.entrada" min="0" max="239" data-unidad=" s" aria-label="Entrada de los filtros"></label>
+          <label>Duración del fundido <output></output><input type="range" data-ajuste="filtros.fundido" min="1" max="90" data-unidad=" s" aria-label="Fundido de los filtros"></label>
+          <small>100 % conserva la imagen original. Los filtros solo se aplican al paisaje.</small>
+        </fieldset>
+        <fieldset>
+          <legend>Grano de la expansión</legend>
+          <label>Intensidad final <output></output><input type="range" data-ajuste="textura.grano" min="0" max="40" data-unidad=" %" aria-label="Intensidad final del grano"></label>
+          <small>Aparece con el crecimiento. Cada patrón se mantiene fijo hasta el siguiente intervalo.</small>
+        </fieldset>
+      </div>
+      <div id="time-panel" hidden>
+        <fieldset>
+          <legend>Duración del paisaje</legend>
+          <label>Espera inicial <output></output><input type="range" data-ajuste="tiempo.esperaInicial" min="0" max="30" data-unidad=" s" aria-label="Espera inicial"></label>
+          <label>Recorrido <output></output><input type="range" data-ajuste="tiempo.recorrido" min="10" max="150" data-unidad=" s" aria-label="Duración del recorrido"></label>
+          <label>Pausa final <output></output><input type="range" data-ajuste="tiempo.pausaFinal" min="0" max="60" data-unidad=" s" aria-label="Pausa final"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Revelación</legend>
+          <label>Entrada <output></output><input type="range" data-ajuste="mri.entrada" min="0" max="239" data-unidad=" s" aria-label="Entrada de la resonancia"></label>
+          <label>Fundido <output></output><input type="range" data-ajuste="mri.fundido" min="1" max="60" data-unidad=" s" aria-label="Duración del fundido"></label>
+        </fieldset>
+      </div>
+      <div id="sound-panel" hidden>
+        <fieldset>
+          <legend>Sonido</legend>
+          <small id="sound-scope"></small>
+          <label class="check" id="sound-mode-row"><input id="sound-mode" type="checkbox"> Fondo y soplos que se acumulan</label>
+          <label>Entrada <output></output><input type="range" data-ajuste="sonido.entrada" min="0" max="239" data-unidad=" s" aria-label="Entrada del sonido"></label>
+          <label id="sound-spacing" hidden>Intervalo inicial <output></output><input type="range" data-ajuste="sonido.intervalo" min="3" max="25" step="0.5" data-unidad=" s" aria-label="Intervalo entre soplos"></label>
+          <label id="sound-rate" hidden>Ritmo <output></output><input type="range" data-ajuste="sonido.ritmo" min="0.5" max="1.5" step="0.05" data-unidad="×" aria-label="Ritmo de la pista"></label>
+          <label>Volumen de la pista / soplos <output></output><input type="range" data-ajuste="sonido.volumen" min="0" max="100" data-unidad=" %" aria-label="Volumen"></label>
+          <div id="sound-layer-controls" hidden>
+            <label>Volumen de fondo <output></output><input type="range" data-ajuste="sonido.fondo" min="0" max="100" data-unidad=" %" aria-label="Volumen de fondo"></label>
+            <label>Nivel al empezar <output></output><input type="range" data-ajuste="sonido.nivelInicial" min="0" max="100" data-unidad=" %" aria-label="Nivel al empezar"></label>
+            <label>Acumulación desde <output></output><input type="range" data-ajuste="sonido.desde" min="0" max="95" data-unidad=" %" aria-label="Inicio de acumulación"></label>
+            <label>Intervalo final <output></output><input type="range" data-ajuste="sonido.intervaloFinal" min="0.45" max="3" step="0.05" data-unidad=" s" aria-label="Intervalo final"></label>
+            <label>Irregularidad <output></output><input type="range" data-ajuste="sonido.irregularidad" min="0" max="65" data-unidad=" %" aria-label="Irregularidad"></label>
+            <label>Variación de duración <output></output><input type="range" data-ajuste="sonido.variacion" min="0" max="35" data-unidad=" %" aria-label="Variación de duración"></label>
+            <small>La acumulación empieza en ese porcentaje del recorrido. Con intervalos cortos, los soplos se superponen.</small>
+          </div>
+          <label class="file-label" for="sound-file">Probar otra pista</label>
+          <input id="sound-file" type="file" accept="audio/*,.wav,.mp3,.ogg,.m4a">
+          <button id="restore-sound" type="button" hidden>Volver al sonido de la escena</button>
+          <small id="sound-name"></small>
+        </fieldset>
+      </div>
+      <div class="save-row"><button id="save">Descargar ajustes.js</button><button id="reset">Restablecer</button></div>
+    </aside>
+  </div>
+</main>
+<audio id="audio" preload="auto"></audio>
+</body>
+</html>
