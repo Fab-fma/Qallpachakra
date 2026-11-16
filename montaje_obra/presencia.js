@@ -1,6 +1,6 @@
 'use strict';
 
-// Ensayo con ratón y lectura de silueta contra una referencia del espacio vacío.
+// Ensayo con ratón y detección local de rostros con Pico.
 window.configurarPresencia = function configurarPresencia(stage, onSignal) {
   const cameraButton = document.getElementById('camera');
   const rehearsal = document.getElementById('rehearsal');
@@ -8,12 +8,12 @@ window.configurarPresencia = function configurarPresencia(stage, onSignal) {
   const video = document.createElement('video');
   video.muted = video.playsInline = true;
   const canvas = document.createElement('canvas');
-  const width = canvas.width = 96;
-  const height = canvas.height = 54;
   const context = canvas.getContext('2d', {willReadFrequently: true});
-  let mode = 'manual', stream, timer, leave, generation = 0;
+  let mode = 'manual', stream, timer, leave, classifier, generation = 0;
 
-  function choose(next) {
+  function clamp(value) { return Math.max(0, Math.min(1, value)); }
+
+  function choose(next, message) {
     generation++;
     clearInterval(timer);
     clearTimeout(leave);
@@ -25,9 +25,9 @@ window.configurarPresencia = function configurarPresencia(stage, onSignal) {
     rehearsal.setAttribute('aria-pressed', String(next === 'rehearsal'));
     cameraButton.textContent = next === 'camera' ? 'Apagar cámara' : 'Activar cámara';
     rehearsal.textContent = next === 'rehearsal' ? 'Salir del ensayo' : 'Ensayar presencia';
-    label.textContent = next === 'rehearsal'
+    label.textContent = message ?? (next === 'rehearsal'
       ? 'Mueve el cursor sobre la imagen. Hacia abajo equivale a acercarte.'
-      : next === 'manual' ? 'Control manual' : 'Esperando permiso de cámara…';
+      : next === 'manual' ? 'Control manual' : 'Esperando permiso de cámara…');
     onSignal(next, null);
   }
 
@@ -35,8 +35,8 @@ window.configurarPresencia = function configurarPresencia(stage, onSignal) {
     if (mode !== 'rehearsal') return;
     clearTimeout(leave);
     const box = stage.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
-    const y = Math.max(0, Math.min(1, (event.clientY - box.top) / box.height));
+    const x = clamp((event.clientX - box.left) / box.width);
+    const y = clamp((event.clientY - box.top) / box.height);
     onSignal(mode, {x, y, near: y});
   }
 
@@ -47,70 +47,62 @@ window.configurarPresencia = function configurarPresencia(stage, onSignal) {
   });
   rehearsal.addEventListener('click', () => choose(mode === 'rehearsal' ? 'manual' : 'rehearsal'));
 
-  function luma() {
-    context.drawImage(video, 0, 0, width, height);
-    const rgba = context.getImageData(0, 0, width, height).data;
-    const gray = new Float32Array(width * height);
-    for (let i = 0; i < gray.length; i++) {
-      const j = i * 4;
-      gray[i] = .299 * rgba[j] + .587 * rgba[j + 1] + .114 * rgba[j + 2];
-    }
-    return gray;
-  }
-
-  function locate(frame, background) {
-    // Compensa cambios uniformes de luz antes de contar los píxeles de la silueta.
-    const histogram = new Uint16Array(511);
-    for (let i = 0; i < frame.length; i++) histogram[Math.round(frame[i] - background[i]) + 255]++;
-    let bin = 0, accumulated = histogram[0];
-    while (accumulated < frame.length / 2) accumulated += histogram[++bin];
-    const light = bin - 255;
-    let mass = 0, x = 0, y = 0;
-    for (let i = 0; i < frame.length; i++) {
-      if (Math.abs(frame[i] - background[i] - light) < 30) continue;
-      mass++;
-      x += i % width;
-      y += Math.floor(i / width);
-    }
-    const area = mass / frame.length;
-    if (area < .038 || area > .74) return null;
-    return {
-      x: 1 - x / mass / (width - 1),
-      y: y / mass / (height - 1),
-      near: Math.min(1, (area - .038) / .28),
-    };
-  }
-
   function track() {
-    let background, firstFrame, seenAt, lastSeen, active = false;
-    label.textContent = 'Aléjate del encuadre durante 3 segundos para calibrar.';
-    timer = setInterval(() => {
-      if (video.readyState < 2) return;
-      const now = performance.now();
-      firstFrame ??= now;
-      if (!background) {
-        if (now - firstFrame < 3000) return;
-        background = luma();
-        label.textContent = 'Cámara lista · esperando presencia';
-        return;
+    const scale = Math.min(1, 256 / Math.max(video.videoWidth, video.videoHeight));
+    const width = canvas.width = Math.round(video.videoWidth * scale);
+    const height = canvas.height = Math.round(video.videoHeight * scale);
+    const shortSide = Math.min(width, height);
+    const pixels = new Uint8Array(width * height);
+    const image = {pixels, nrows: height, ncols: width, ldim: width};
+    const scan = {
+      shiftfactor: .12, scalefactor: 1.15,
+      minsize: Math.max(22, Math.round(shortSide * .14)), maxsize: shortSide,
+    };
+    let lastFrame, seenAt, lastSeen, active = false, smoothed;
+    label.textContent = 'Esperando rostro';
+
+    function locate() {
+      context.drawImage(video, 0, 0, width, height);
+      const rgba = context.getImageData(0, 0, width, height).data;
+      for (let i = 0; i < pixels.length; i++) {
+        const j = i * 4;
+        pixels[i] = (2 * rgba[j] + 7 * rgba[j + 1] + rgba[j + 2]) / 10;
       }
-      const signal = locate(luma(), background);
-      if (signal) {
-        seenAt ??= now;
-        lastSeen = now;
-        if (now - seenAt >= 400) {
-          if (!active) label.textContent = 'Presencia detectada';
-          active = true;
-          onSignal(mode, signal);
-        }
-      } else {
+      const detections = window.pico.run_cascade(image, classifier, scan);
+      const face = window.pico.cluster_detections(detections, .2).find(item => item[3] >= 5);
+      if (!face) return null;
+      const [row, column, size] = face;
+      return {
+        x: 1 - clamp(column / width), y: clamp(row / height),
+        near: clamp((size / shortSide - .18) / .48),
+      };
+    }
+
+    timer = setInterval(() => {
+      const now = performance.now();
+      if (now - lastSeen >= 650) {
+        lastSeen = undefined;
         seenAt = undefined;
-        if (active && now - lastSeen > 2000) {
+        if (active) {
           active = false;
-          label.textContent = 'En pausa · esperando presencia';
+          smoothed = undefined;
+          label.textContent = 'Esperando rostro';
           onSignal(mode, null);
         }
       }
+      // Un fotograma congelado nunca renueva la detección.
+      if (video.readyState < 2 || video.currentTime === lastFrame) return;
+      lastFrame = video.currentTime;
+      const signal = locate();
+      if (!signal) { seenAt = undefined; return; }
+      seenAt ??= now;
+      lastSeen = now;
+      if (!active && now - seenAt < 350) return;
+      if (!active) label.textContent = 'Rostro detectado';
+      active = true;
+      smoothed ??= {...signal};
+      for (const key of ['x', 'y', 'near']) smoothed[key] += (signal[key] - smoothed[key]) * .2;
+      onSignal(mode, {...smoothed});
     }, 130);
   }
 
@@ -118,6 +110,14 @@ window.configurarPresencia = function configurarPresencia(stage, onSignal) {
     if (mode === 'camera') { choose('manual'); return; }
     choose('camera');
     const request = generation;
+    try {
+      classifier ??= window.pico.unpack_cascade(Uint8Array.from(
+        atob(window.CASCADA_ROSTRO), character => character.charCodeAt(0),
+      ));
+    } catch {
+      choose('camera-error', 'No se cargó el detector facial. Recarga la página o ensaya con el cursor.');
+      return;
+    }
     try {
       const incoming = await navigator.mediaDevices.getUserMedia({
         video: {width: {ideal: 320}, height: {ideal: 180}, frameRate: {ideal: 10}}, audio: false,
@@ -127,15 +127,13 @@ window.configurarPresencia = function configurarPresencia(stage, onSignal) {
       video.srcObject = stream;
       stream.getVideoTracks()[0].addEventListener('ended', () => {
         if (request !== generation) return;
-        choose('manual');
-        label.textContent = 'Se desconectó la cámara. Puedes ensayar con el cursor.';
+        choose('camera-error', 'Se desconectó la cámara. Puedes volver a activarla o ensayar con el cursor.');
       });
       await video.play();
       if (request === generation) track();
     } catch {
       if (request !== generation) return;
-      choose('manual');
-      label.textContent = 'La cámara no está disponible. Revisa el permiso o usa el ensayo con el cursor.';
+      choose('camera-error', 'La cámara no está disponible. Revisa el permiso o ensaya con el cursor.');
     }
   });
   window.addEventListener('pagehide', () => choose('manual'));

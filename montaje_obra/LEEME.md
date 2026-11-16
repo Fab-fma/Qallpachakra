@@ -7,19 +7,21 @@ Espacio pausa o reanuda, y Esc vuelve a los ajustes.
 
 ## Cómo se encadenan los lugares
 
-**Obra completa** dura 3 min. El selector **Escena** permite revisar también cada
-lugar por separado. En la obra completa, la barra recorre los tres lugares
-y los botones debajo del video permiten saltar a cada uno.
+**Obra completa** dura 1 min 30 s y se centra en Madre de Dios. El selector
+**Escena** también permite revisar el montaje de Madre de Dios por separado.
 
 | Inicio | Lugar | Qué se revela |
 | --- | --- | --- |
-| 0:00 | Río Pariamanu | Tras 2022 crecen claros separados alrededor de los meandros. |
-| 0:51 | Camanti | La expansión sigue las ramificaciones del valle y la forma cerebral empieza a reconocerse. |
-| 1:45 | Madre de Dios | La resonancia se hace más visible y los soplos se superponen. |
-| 2:37 | Cierre de Madre de Dios | La expansión más extensa crece sobre el último mosaico. |
+| 0:00 | Madre de Dios | El paisaje cambia a lo largo del timelapse. |
+| 0:52 | Expansión | La zona dañada crece sobre el último mosaico. |
+| 1:15 | Cierre | Sube el contraste, el daño se pierde en negro y la resonancia se funde con el cauce de 1984. |
+| 1:30 | Espera | Queda solo el cauce de 1984, con un fondo tenue. |
 
-Los lugares entran y salen con un fundido breve. El fondo y los soplos forman
-una sola pista a lo largo de la obra. **Reiniciar** sortea un patrón nuevo desde
+En modo manual, una pasada iniciada con **Reproducir** vuelve a empezar
+después de 4 segundos de espera. Con cámara, vuelve a empezar si aún detecta
+un rostro. Si el encuadre está vacío, el cauce queda en espera hasta que llegue alguien.
+El sonido de espera se activa tras pulsar **Proyectar**, **Reproducir** o
+activar el modo de presencia. **Reiniciar** sortea un patrón nuevo desde
 el principio. Pausar, reanudar o mover la barra conserva el patrón de esa pasada.
 En **Capas**, elige **Mapa + crecimiento** para revisar la expansión por
 separado con su grano visual. **Solo mapa** deja los mosaicos históricos.
@@ -34,8 +36,9 @@ del paisaje.
 2. Mueve el mapa con sus propios controles. La exportación incluye margen para
    conservar el tamaño del paisaje del encuadre original. Si el desplazamiento
    supera el margen, el mapa se acerca automáticamente para cubrir el borde.
-3. En **Tiempo**, cambia la duración del recorrido, la espera inicial
-   o la pausa final del lugar que estás viendo. En **Obra completa**, el encabezado
+3. En **Tiempo → Duración del timelapse**, cambia cuánto permanece cada año
+   en pantalla. El valor debajo del control indica los segundos por año.
+   En **Obra completa**, el encabezado
    del panel indica a qué escena corresponden los ajustes de imagen y tiempo.
 4. Ajusta la entrada y el fundido de la resonancia por separado. En **Sonido**,
    **Volumen de fondo** regula el aire mecánico y **Acumulación desde** decide
@@ -45,13 +48,20 @@ del paisaje.
    **Irregularidad** modifica la separación y **Variación de duración** cambia
    cuánto duran los soplos posteriores al primero. Desmarca **Fondo y soplos
    que se acumulan** para recuperar el soplo fijo. **Probar otra pista** permite
-   escuchar un archivo local durante esa sesión.
+   escuchar un archivo local durante esa sesión. **Amplitud estéreo** da a los
+   soplos un ligero desplazamiento a izquierda y derecha. Al acumularse se
+   acercan al centro. En 0 %, quedan centrados. **Fondo en espera** ajusta el
+   aire tenue que acompaña al río entre pasadas.
 5. En **Filtros**, cambia la saturación, el brillo y el contraste finales.
    **Ver al máximo para ajustar** los aplica de inmediato. Usa **Empieza en** y
    **Duración del fundido** para decidir cuándo empieza el desgaste y cuánto
-   tarda en alcanzar esos valores. **Grano de la expansión** ajusta cuánta
-   textura visual habrá al final. Aparece con el escenario artístico y
-   conserva cada patrón durante un intervalo, igual que el timelapse.
+   tarda en alcanzar esos valores. En **Textura de televisión**, el grano
+   fino cambia continuamente y las bandas dan un salto con cada mosaico.
+   Su intensidad va de **Grano inicial**
+   a **Grano antes de la expansión**. Durante el crecimiento sigue subiendo
+   hasta **Intensidad final**. Cada nivel admite de 0 a 100 %. El grano se
+   apaga al comienzo del cierre. **Viñetado** oscurece los bordes
+   progresivamente durante el desgaste.
    Al reproducir o proyectar se desactiva la vista de ajuste.
 6. Para guardar los números, pulsa **Descargar ajustes.js**. Reemplaza el archivo
    `ajustes.js` de esta carpeta con la copia descargada y recarga la página. Para
@@ -72,12 +82,14 @@ El archivo a editar es **`ajustes.js`**. `montaje.js` contiene el reproductor.
 | Cuándo aparece y cuánto tarda en revelarse | `mri.entrada`, `mri.fundido` |
 | Duración total | Suma de `tiempo.esperaInicial`, `tiempo.recorrido` y `tiempo.pausaFinal` |
 | Orden de los lugares y duración de cada fundido entre ellos | Orden en `ESCENAS` y `FUNCION.fundido` |
+| Duración del cierre y espera entre pasadas | `FUNCION.cierre.duracion`, `FUNCION.cierre.espera` |
+| Intensidad del movimiento con la presencia | **Imagen → Paralaje** o `FUNCION.paralaje` |
 | Sonido compartido durante toda la obra | `FUNCION.sonido` |
 | Rampa de volumen desde el inicio hasta el cierre | `sonido.nivelInicial` |
-| Intensidad final e intervalo del grano | `textura.grano`, `textura.intervalo` |
+| Grano inicial, antes de la expansión, al final e intervalo | `textura.granoHistorico`, `textura.granoAntesExpansion`, `textura.grano`, `textura.intervalo` |
 | Volumen de fondo y punto donde empieza la acumulación | `sonido.fondo`, `sonido.desde` |
 | Soplos y variaciones | `sonido.volumen`, `sonido.intervalo`, `sonido.intervaloFinal`, `sonido.irregularidad`, `sonido.variacion` |
-| Desgaste del paisaje | `filtros.entrada`, `filtros.fundido`, `filtros.saturacion`, `filtros.brillo`, `filtros.contraste` |
+| Desgaste del paisaje | `filtros.entrada`, `filtros.fundido`, `filtros.saturacion`, `filtros.brillo`, `filtros.contraste`, `filtros.vinetado` |
 
 Los tiempos se expresan en segundos y las posiciones en porcentajes del
 encuadre. En X e Y, 50 es el centro. Subir X mueve a la derecha y subir Y hacia
@@ -89,18 +101,18 @@ después del tiempo configurado. La acumulación se guía por el recorrido de la
 ## Probar la presencia
 
 - **Ensayar presencia** activa el control con el cursor. Entra en la imagen
-  para comenzar, muévete de lado a lado y sal para pausar. Hacia abajo
+  para comenzar y muévete de lado a lado. Hacia abajo
   simula que te acercas. A medida que se revela la resonancia, la cercanía
   refuerza una zona concreta y el movimiento lateral desplaza esa zona.
-- **Activar cámara** pide permiso al navegador. Deja el encuadre vacío por
-  tres segundos tras concederlo. Usa una cámara fija, luz estable y apunta
-  hacia el público. La detección compara siluetas con la vista inicial del
-  espacio vacío. Cuando se pierde la silueta por unos dos segundos, la obra
-  queda en pausa. Si ya acabó, vuelve al principio para la próxima visita.
+- **Activar cámara** pide permiso al navegador. Orienta la cámara para que
+  vea al espectador de frente y con luz suficiente. Al salir del encuadre,
+  el panel vuelve a **Esperando rostro** y la obra termina su pasada actual.
+  Si vuelve a ver un rostro durante la espera, inicia otra pasada.
 - La cámara se procesa en el navegador. No se graban imágenes ni se pide
-  acceso al micrófono. En **Proyectar**, el movimiento se aplica a mapa,
-  crecimiento y resonancia juntos. Para recalibrar, apaga y vuelve a activar
-  la cámara con el espacio vacío.
+  acceso al micrófono. El mapa y el crecimiento se desplazan juntos. La
+  resonancia se mueve un poco más para dar sensación de profundidad.
+  El movimiento se aquieta durante el cierre. La detección facial usa
+  [Pico](https://github.com/nenadmarkus/picojs) con los [pesos del autor](https://github.com/nenadmarkus/pico/tree/7d550c78b2c31a4e1dfc5bcdfe9da013297b5cc8/rnt/cascades).
 
 ## Ajustar el crecimiento final
 
@@ -138,7 +150,6 @@ de duración uniforme. Los lugares se suman a la obra completa según su orden
 en `ESCENAS` y aparecen también por separado. Quita `mapa.margen` si el MP4 nuevo ya tiene el
 encuadre final y no incluye paisaje adicional alrededor.
 
-El selector incluye Madre de Dios, Río Pariamanu y Camanti. Los años
-corresponden al material histórico. Consulta cómo crear otra secuencia
+Los años corresponden al material histórico. Consulta cómo crear otra secuencia
 por coordenadas en la [guía del material satelital](../material_timelapse/LEEME.md).
 Conservar la acreditación del [material de origen](../material_timelapse/LEEME.md).

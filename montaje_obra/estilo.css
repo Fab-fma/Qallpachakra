@@ -32,14 +32,24 @@ h1 { font: 400 clamp(32px, 4.8vw, 60px)/1 Georgia, serif; margin: 0; }
   transform: translate(var(--map-x, 0), var(--map-y, 0)) scale(var(--map-zoom, 1));
 }
 .composition video {
-  filter: saturate(var(--map-saturation, 1)) brightness(var(--map-brightness, 1)) contrast(var(--map-contrast, 1));
+  filter: saturate(var(--map-saturation, 1)) brightness(var(--map-brightness, 1))
+    contrast(var(--map-contrast, 1)) grayscale(var(--ending-tone, 0))
+    brightness(var(--ending-light, 1)) contrast(var(--ending-contrast, 1));
 }
-.damage { pointer-events: none; filter: brightness(var(--map-brightness, 1)); }
+.damage {
+  pointer-events: none; filter: brightness(var(--map-brightness, 1))
+    grayscale(var(--ending-tone, 0)) brightness(var(--ending-light, 1)) contrast(var(--ending-contrast, 1));
+}
 .grain {
   position: absolute; inset: 0; width: 100%; height: 100%;
   mix-blend-mode: soft-light; pointer-events: none;
 }
-.shade { background: #101510; opacity: var(--shade, 0); pointer-events: none; }
+.vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 52% 48%, transparent 30%, #0004 68%, #000 100%);
+  opacity: var(--vignette, 0);
+}
+.shade { background: #080c09; opacity: var(--shade, 0); pointer-events: none; }
 :is(#mri, #mri-echo) {
   position: absolute;
   height: var(--mri-height, 97%);
@@ -47,10 +57,13 @@ h1 { font: 400 clamp(32px, 4.8vw, 60px)/1 Georgia, serif; margin: 0; }
   left: var(--mri-x, 64%);
   top: var(--mri-y, 52%);
   transform: translate(-50%, -50%);
-  filter: grayscale(1) contrast(1.09);
+  translate: var(--depth-x, 0) var(--depth-y, 0);
+  filter: grayscale(1) contrast(var(--mri-contrast, 1.09));
   pointer-events: none;
   mask-image: radial-gradient(ellipse 52% 58% at 50% 49%, #000 52%, transparent 100%);
 }
+.composition { container-type: inline-size; }
+:is(#mri, #mri-echo) { transition: translate .42s ease-out; }
 #mri { mix-blend-mode: screen; opacity: var(--mri-opacity, 0); }
 #mri-focus {
   position: absolute; inset: 0; pointer-events: none;
@@ -61,7 +74,30 @@ h1 { font: 400 clamp(32px, 4.8vw, 60px)/1 Georgia, serif; margin: 0; }
 .year, .credit { position: absolute; color: #f8f2e4; text-shadow: 0 1px 5px #000, 0 1px 2px #000; font-variant-numeric: tabular-nums; }
 .year { top: 14px; left: 17px; letter-spacing: .13em; }
 .credit { bottom: 9px; right: 12px; font-size: clamp(8px, 1.15vw, 11px); text-align: right; }
+.year, .credit { opacity: var(--legend, 1); }
 .curtain { position: absolute; inset: 0; background: #080c09; opacity: var(--curtain, 1); pointer-events: none; }
+.river-frame {
+  position: absolute; inset: 0; pointer-events: none;
+  transform: translate(var(--map-x, 0), var(--map-y, 0)) scale(var(--map-zoom, 1));
+}
+#river, .river-imprint { position: absolute; inset: 0; width: 100%; height: 100%; }
+#river { filter: grayscale(1); opacity: var(--river-light, 0); }
+.river-imprint {
+  mask-image: var(--river-mask); mask-size: 100% 100%;
+  opacity: var(--river-imprint, 0); mix-blend-mode: screen;
+}
+#mri-imprint {
+  position: absolute; left: var(--mri-x, 64%); top: 37%;
+  height: var(--mri-height, 97%); width: auto;
+  transform: translate(-50%, -50%);
+  filter: grayscale(1) brightness(1.25) contrast(10);
+}
+.coda {
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+  opacity: var(--title-opacity, 0); color: #d4cdbd;
+  font: 400 clamp(17px, 3.5cqw, 62px)/1.2 Georgia, serif;
+  letter-spacing: .025em; text-align: center;
+}
 .place {
   position: absolute; top: 14px; right: 17px; opacity: var(--place, 0);
   color: #f8f2e4; text-shadow: 0 1px 5px #000; pointer-events: none;

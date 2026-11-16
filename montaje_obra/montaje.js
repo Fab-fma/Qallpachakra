@@ -6,6 +6,7 @@
   const play = $('play'), seek = $('seek'), status = $('status');
   const layers = $('layers');
   const chapters = $('chapters');
+  const mosaicPace = $('mosaic-pace');
   const sound = window.crearSonidoProcedural();
   const paintDamage = window.crearCrecimiento($('damage'));
   const paintGrain = window.crearGrano($('grain'));
@@ -20,13 +21,14 @@
   }
 
   // El archivo de ajustes es la versión guardada. La interfaz edita esta copia.
-  const filterDefaults = {entrada: 0, fundido: 1, saturacion: 100, brillo: 100, contraste: 100};
-  const soundDefaults = {ritmo: 1, fondo: 28, desde: 58, intervaloFinal: .65, irregularidad: 38, variacion: 20, nivelInicial: 55};
+  const filterDefaults = {entrada: 0, fundido: 1, saturacion: 100, brillo: 100, contraste: 100, vinetado: 0};
+  const soundDefaults = {ritmo: 1, fondo: 28, desde: 58, intervaloFinal: .65, irregularidad: 38, variacion: 20, nivelInicial: 55, estereo: 0, espera: 0};
   const saved = structuredClone(initial);
   for (const place of saved) {
     place.filtros = {...filterDefaults, ...place.filtros};
     place.sonido = {...soundDefaults, ...place.sonido};
-    place.textura = {grano: place.textura?.grano ?? 0, intervalo: place.textura?.intervalo};
+    place.textura = {grano: 0, granoHistorico: 0, ...place.textura};
+    place.textura.granoAntesExpansion ??= place.textura.granoHistorico;
     // La línea de tiempo usa los mismos límites que los controles.
     for (const input of timeControls) {
       const key = input.dataset.ajuste.split('.')[1];
@@ -35,19 +37,23 @@
     }
   }
   const scenes = structuredClone(saved);
-  const showConfig = window.FUNCION ?? {};
+  const savedParallax = window.FUNCION?.paralaje ?? 40;
+  const showConfig = {...window.FUNCION, paralaje: savedParallax};
+  const ending = {duracion: 12, texto: 'El territorio respira', ...showConfig.cierre};
   const savedShowSound = {...saved[0].sonido, ...showConfig.sonido};
   let showSound = structuredClone(savedShowSound);
   let index = 0, position = 0, startedAt = 0, running = false, raf = 0, audioUrl;
   let sequence = true, mapReady = false, startWhenReady = false, runSeed;
   let presenceMode = 'manual', audience = null;
+  let standby = true, replayTimer;
   let starts, sequenceLength;
   const pending = new WeakSet(), blocked = new WeakSet();
   const scene = () => scenes[index];
   const duration = ({esperaInicial, recorrido, pausaFinal}) => esperaInicial + recorrido + pausaFinal;
   const sceneStart = () => sequence ? starts[index] : 0;
   const localTime = () => position - sceneStart();
-  const total = () => sequence ? sequenceLength : duration(scene().tiempo);
+  const endingLength = () => sequence && composed() ? Math.max(0, ending.duracion) : 0;
+  const total = () => sequence ? sequenceLength + endingLength() : duration(scene().tiempo);
   const soundSettings = () => sequence ? showSound : scene().sonido;
   const clamp = (n, low, high) => Math.min(high, Math.max(low, n));
   const transitionDuration = time => clamp(showConfig.fundido ?? 1.6, 0, duration(time) / 2);
@@ -56,14 +62,28 @@
   const hidePreviews = () => previews.forEach(input => { input.checked = false; });
   const usesLayers = () => soundSettings().procedural && !audioUrl;
   const composed = () => layers.value === 'full';
+  const riverLoop = () => endingLength() > 0 && ending.rio && Boolean(window.RIO_1984);
   const freshSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
+
+  function smooth(from, to, value) {
+    const t = clamp((value - from) / (to - from), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  function closingAudio() {
+    const length = endingLength();
+    return length > 0 ? {
+      fadeStart: sequenceLength + length * .10,
+      lastBreath: sequenceLength + length * .28,
+      silentAt: sequenceLength + length * .78,
+    } : null;
+  }
 
   function mosaicCount(place) {
     return place.anios?.length === 2 ? place.anios[1] - place.anios[0] + 1 : 0;
   }
 
-  function paintGrowthGrain(place, age, visible) {
-    if (!visible || !place.textura.grano) { paintGrain(0, 0); return; }
+  function paintGrowthGrain(place, age, attenuation) {
     const {textura, tiempo, crecimiento} = place;
     const defaultInterval = tiempo.recorrido / (mosaicCount(place) || tiempo.recorrido);
     const interval = Math.max(.15, textura.intervalo ?? defaultInterval);
@@ -71,7 +91,8 @@
     const step = Math.min(steps - 1, Math.floor(age / interval));
     const level = steps > 1 ? step / (steps - 1) : 0;
     const seed = runSeed ^ Math.imul(index + 1, 465073) ^ Math.imul(step + 1, 31337);
-    paintGrain(seed, textura.grano / 100 * (.22 + .78 * level));
+    const intensity = textura.granoAntesExpansion * (1 - level) + textura.grano * level;
+    paintGrain(seed, intensity / 100 * attenuation, age);
   }
 
   function rebuildTimeline() {
@@ -88,10 +109,10 @@
       const firstWait = scenes[0].tiempo.esperaInicial;
       const finalHold = scenes.at(-1).tiempo.pausaFinal;
       const timing = sequence
-        ? {esperaInicial: firstWait, recorrido: total() - firstWait - finalHold, pausaFinal: finalHold}
+        ? {esperaInicial: firstWait, recorrido: sequenceLength - firstWait - finalHold, pausaFinal: finalHold}
         : {...scene().tiempo};
       timing.recorrido += clamp(soundSettings().picoEnCierre ?? 0, 0, timing.pausaFinal);
-      sound.play(soundSettings(), timing, position, total(), runSeed).catch(() => {
+      sound.play(soundSettings(), timing, position, total(), runSeed, closingAudio()).catch(() => {
         sound.stop();
         note('El navegador bloqueó la mezcla. Pausa y vuelve a pulsar Reproducir.');
       });
@@ -99,13 +120,12 @@
   }
 
   function fadeIn({entrada, fundido}, elapsed) {
-    const t = clamp((elapsed - entrada) / fundido, 0, 1);
-    return t * t * (3 - 2 * t);
+    return smooth(entrada, entrada + fundido, elapsed);
   }
 
   function controlValue(input, fromFile = false) {
     const [group, key] = input.dataset.ajuste.split('.');
-    const settings = group === 'sonido' ? soundSettings() : scene()[group];
+    const settings = group === 'funcion' ? showConfig : group === 'sonido' ? soundSettings() : scene()[group];
     if (fromFile) {
       if (settings[key] === undefined) return;
       input.value = settings[key];
@@ -131,10 +151,20 @@
     const current = scene();
     const {mapa, mri: layer, filtros, anios, tiempo, crecimiento} = current;
     const elapsed = localTime();
+    const endLength = endingLength();
+    const endProgress = endLength > 0 ? clamp((position - sequenceLength) / endLength, 0, 1) : 0;
+    const loop = riverLoop();
+    const opening = loop ? (standby ? 0 : smooth(0, 2.8, position)) : 1;
+    const contrast = loop ? smooth(.12, .65, endProgress) : 0;
+    const darken = loop ? smooth(.19, .76, endProgress) : smooth(.19, .68, endProgress);
+    const untilClosing = (sequenceLength - position) / Math.max(1, endLength);
+    const stillness = loop ? smooth(0, .20, untilClosing) : 1 - smooth(.04, .44, endProgress);
+    const depth = showConfig.paralaje / 100 * stillness;
     const growthStart = tiempo.esperaInicial + tiempo.recorrido + (crecimiento?.espera ?? 0);
     const artistic = Boolean(layers.value !== 'map' && crecimiento && elapsed >= growthStart);
     const growth = artistic ? clamp((elapsed - growthStart) / Math.max(.1, crecimiento.duracion), 0, 1) : 0;
     const reveal = composed() ? ($('preview-mri').checked ? 1 : fadeIn(layer, elapsed)) : 0;
+    const mriFade = 1 - smooth(.54, .83, endProgress);
     const filterMix = composed() ? ($('preview-filters').checked ? 1 : fadeIn(filtros, elapsed)) : 0;
     const filterValue = key => 1 + (filtros[key] / 100 - 1) * filterMix;
     // Para cubrir el marco, ambos lados deben tener margen suficiente para el desplazamiento.
@@ -145,22 +175,34 @@
     style.setProperty('--map-saturation', filterValue('saturacion'));
     style.setProperty('--map-brightness', filterValue('brillo'));
     style.setProperty('--map-contrast', filterValue('contraste'));
+    style.setProperty('--ending-tone', contrast);
+    style.setProperty('--ending-light', 1 - .40 * contrast);
+    style.setProperty('--ending-contrast', 1 + 10 * contrast);
+    style.setProperty('--mri-contrast', 1.09 + 9 * contrast);
+    style.setProperty('--vignette', composed() ? filtros.vinetado / 100 * filterMix : 0);
     style.setProperty('--mri-x', `${layer.x}%`);
     style.setProperty('--mri-y', `${layer.y}%`);
     style.setProperty('--mri-height', `${layer.tamano}%`);
-    style.setProperty('--mri-opacity', layer.archivo ? reveal * layer.opacidad / 100 : 0);
-    const focus = layer.archivo && audience ? reveal * audience.near * (.13 + growth * .24) : 0;
+    const mriOpacity = layer.opacidad / 100 * (1 + .16 * darken);
+    style.setProperty('--mri-opacity', layer.archivo ? reveal * mriOpacity * mriFade : 0);
+    const focus = layer.archivo && audience ? reveal * audience.near * (.13 + growth * .24) * depth : 0;
     style.setProperty('--focus-opacity', focus);
     style.setProperty('--focus-x', `${audience ? 23 + audience.x * 55 : 50}%`);
     style.setProperty('--focus-y', `${audience ? 25 + audience.y * 48 : 50}%`);
-    style.setProperty('--shade', layer.archivo ? reveal * layer.opacidad / 300 : 0);
-    style.setProperty('--react-x', audience ? `${(audience.x - .5) * 4.2}%` : '0%');
-    style.setProperty('--react-y', audience ? `${(audience.y - .5) * 2.7}%` : '0%');
-    style.setProperty('--react-zoom', audience ? 1.05 + audience.near * .025 : 1);
+    const shading = layer.archivo ? reveal * layer.opacidad / 300 : 0;
+    style.setProperty('--shade', shading + (1 - shading) * darken);
+    const dx = (audience ? audience.x - .5 : 0) * depth;
+    const dy = (audience ? audience.y - .5 : 0) * depth;
+    style.setProperty('--react-x', `${dx * 2.4}%`);
+    style.setProperty('--react-y', `${dy * 1.5}%`);
+    style.setProperty('--react-zoom', audience ? 1 + depth * (.035 + audience.near * .025) : 1);
+    // El mapa y su máscara se mueven juntos. La resonancia se desplaza un poco más.
+    style.setProperty('--depth-x', `${dx * 2.8}cqw`);
+    style.setProperty('--depth-y', `${dy * 1.0}cqw`);
     $('damage').style.opacity = (crecimiento?.opacidad ?? 100) / 100;
     paintDamage(elapsed - growthStart, artistic ? crecimiento : undefined);
     const cue = $('presence-cue');
-    cue.hidden = presenceMode === 'manual' || audience !== null;
+    cue.hidden = !standby || presenceMode !== 'rehearsal' || audience !== null;
     cue.textContent = presenceMode === 'rehearsal' ? 'Entra con el cursor'
       : position > 0 ? 'Acércate para continuar' : 'Acércate para activar';
     const length = duration(tiempo);
@@ -170,13 +212,36 @@
       if (index > 0) visibility = Math.min(visibility, elapsed / transition);
       if (index < scenes.length - 1) visibility = Math.min(visibility, (length - elapsed) / transition);
     }
-    style.setProperty('--curtain', 1 - clamp(visibility, 0, 1));
-    style.setProperty('--place', sequence && mapReady ? clamp((4.6 - elapsed) / 1.2, 0, 1) : 0);
+    const blackout = loop ? smooth(.77, .96, endProgress) : smooth(.66, .83, endProgress);
+    style.setProperty('--curtain', Math.max(1 - clamp(visibility * opening, 0, 1), blackout));
+    const riverIn = smooth(.20, .59, endProgress);
+    const riverSettles = smooth(.71, 1, endProgress);
+    const riverLight = loop ? .085 * (1 - opening) + riverIn * (.39 - .305 * riverSettles) : 0;
+    $('river-frame').hidden = !riverLight;
+    style.setProperty('--river-light', riverLight);
+    style.setProperty('--river-imprint', loop ? .25 * smooth(.35, .63, endProgress) * (1 - smooth(.74, .98, endProgress)) : 0);
+    const waiting = standby || (running && endProgress >= .84);
+    sound.standby(loop && waiting ? soundSettings().espera / 100 : 0);
+    style.setProperty('--legend', 1 - smooth(.18, .65, endProgress));
+    const titleOpacity = smooth(.74, .89, endProgress);
+    $('coda').hidden = !titleOpacity || !ending.texto;
+    style.setProperty('--title-opacity', titleOpacity);
+    style.setProperty('--place', sequence && mapReady && !loop ? clamp((4.6 - elapsed) / 1.2, 0, 1) : 0);
 
     const count = mosaicCount(current);
     const progress = videoProgress(elapsed);
     const mosaic = Math.min(count - 1, Math.floor(progress * count));
-    paintGrowthGrain(current, elapsed - growthStart, artistic && mapReady);
+    if (artistic && mapReady) {
+      const grainTime = loop ? Math.min(elapsed, length) : elapsed;
+      paintGrowthGrain(current, grainTime - growthStart, loop ? 1 - smooth(.02, .31, endProgress) : 1);
+    } else {
+      const {granoHistorico, granoAntesExpansion} = current.textura;
+      const grain = composed() && mapReady
+        ? (granoHistorico + (granoAntesExpansion - granoHistorico) * Math.max(0, mosaic) / Math.max(1, count - 1)) / 100
+        : 0;
+      const seed = runSeed ^ Math.imul(index + 1, 465073) ^ Math.imul(mosaic + 1, 19391);
+      paintGrain(seed, grain, elapsed);
+    }
     $('year').textContent = artistic ? `Escenario artístico · desde ${anios?.[1] ?? 'el último mosaico'}`
       : count > 0 ? anios[0] + mosaic : '';
     seek.max = total();
@@ -185,6 +250,8 @@
     play.textContent = running || startWhenReady ? 'Pausar' : position >= total() ? 'Volver a ver' : 'Reproducir';
     play.disabled = !mapReady && !running && !startWhenReady;
     seek.disabled = !mapReady && !running;
+    const pace = count > 1 ? `Cada año ocupa ${seconds(tiempo.recorrido / count)} s en pantalla.` : '';
+    if (mosaicPace.textContent !== pace) mosaicPace.textContent = pace;
   }
 
   function alignMedia(media, target, rate, active, force) {
@@ -221,7 +288,11 @@
     const repeat = sonido.intervalo > 0 && !audioUrl;
     const audioRate = repeat ? 1 : (sonido.ritmo ?? 1);
     const audioTime = repeat ? sinceAudioStart % sonido.intervalo : sinceAudioStart * audioRate;
-    audio.volume = sonido.volumen / 100;
+    const endingAudio = closingAudio();
+    const fade = endingAudio ? 1 - clamp(
+      (position - endingAudio.fadeStart) / (endingAudio.silentAt - endingAudio.fadeStart), 0, 1,
+    ) : 1;
+    audio.volume = sonido.volumen / 100 * fade;
     alignMedia(audio, audioTime, audioRate,
       running && audio.volume > 0 && sinceAudioStart >= 0 && audioTime < audio.duration, force);
   }
@@ -244,6 +315,19 @@
     if (position >= total()) {
       running = false;
       sound.stop();
+      if (riverLoop()) {
+        standby = true;
+        runSeed = freshSeed();
+        moveTo(0);
+        seek.value = 0;
+        update(true);
+        if (presenceMode === 'manual' || audience) {
+          replayTimer = setTimeout(() => {
+            if (presenceMode === 'manual' || audience) startPlayback();
+          }, Math.max(0, ending.espera ?? 4) * 1000);
+        }
+        return;
+      }
       update(true);
       return;
     }
@@ -252,6 +336,7 @@
   }
 
   function stop() {
+    clearTimeout(replayTimer);
     running = false;
     startWhenReady = false;
     cancelAnimationFrame(raf);
@@ -260,6 +345,8 @@
   }
 
   function jump(t) {
+    clearTimeout(replayTimer);
+    standby = false;
     moveTo(t);
     seek.value = position;
     if (running) startedAt = performance.now() - position * 1000;
@@ -269,12 +356,14 @@
 
   function startPlayback() {
     if (running) return;
+    clearTimeout(replayTimer);
     if (!mapReady) {
       startWhenReady = true;
       paint();
       return;
     }
     startWhenReady = false;
+    standby = false;
     hidePreviews();
     blocked.delete(land); blocked.delete(audio);
     running = true;
@@ -292,6 +381,7 @@
   }
 
   function togglePlayback() {
+    unlockAudio();
     if (running || startWhenReady) { stop(); update(true); return; }
     if (position >= total()) restartPlayback();
     else if (!play.disabled) startPlayback();
@@ -302,17 +392,24 @@
     const modeChanged = mode !== presenceMode;
     presenceMode = mode;
     audience = signal;
+    if (modeChanged) {
+      clearTimeout(replayTimer);
+      if (mode === 'camera' || mode === 'rehearsal') unlockAudio();
+    }
     if (mode !== 'manual') {
-      if (signal && !wasPresent && position < total()) startPlayback();
-      if (!signal && (modeChanged || wasPresent)) {
-        stop();
-        if (position >= total()) {
-          runSeed = freshSeed();
-          jump(0);
-        } else update(true);
+      if (!signal) {
+        clearTimeout(replayTimer);
+        if (wasPresent) startWhenReady = false;
+      } else if (!wasPresent && !running) {
+        if (position >= total()) restartPlayback();
+        else startPlayback();
       }
     }
     paint();
+  }
+
+  function unlockAudio() {
+    sound.arm().then(paint).catch(() => {});
   }
 
   function setAudio(source, name) {
@@ -328,6 +425,7 @@
     $('sound-layer-controls').hidden = !layers;
     $('sound-spacing').hidden = !repeat;
     $('sound-rate').hidden = repeat;
+    $('standby-volume').hidden = !riverLoop();
     $('restore-sound').hidden = !audioUrl;
     restartSound();
   }
@@ -355,7 +453,7 @@
       if (i === index) button.setAttribute('aria-current', 'step');
       else button.removeAttribute('aria-current');
     });
-    for (const image of [mri, $('mri-echo')]) {
+    for (const image of [mri, $('mri-echo'), $('mri-imprint')]) {
       if (current.mri.archivo) image.src = current.mri.archivo;
       else image.removeAttribute('src');
     }
@@ -383,8 +481,9 @@
   play.addEventListener('click', togglePlayback);
   layers.addEventListener('change', () => {
     hidePreviews();
-    update(true);
-    restartSound();
+    $('standby-volume').hidden = !riverLoop();
+    if (standby) { clearTimeout(replayTimer); paint(); }
+    else jump(position);
   });
   $('restart').addEventListener('click', restartPlayback);
   seek.addEventListener('input', () => jump(Number(seek.value)));
@@ -398,6 +497,7 @@
       jump(sceneStart() + clamp(elapsed, 0, duration(scene().tiempo) - .01));
     }
     else if (input.dataset.ajuste.startsWith('sonido.')) {
+      paint();
       syncMedia(true);
       restartSound();
     }
@@ -415,6 +515,7 @@
   }
 
   $('project').addEventListener('click', async () => {
+    unlockAudio();
     hidePreviews();
     paint();
     try { await stage.requestFullscreen(); }
@@ -462,6 +563,7 @@
   });
   $('reset').addEventListener('click', () => {
     stop();
+    showConfig.paralaje = savedParallax;
     scenes[index] = structuredClone(saved[index]);
     if (sequence) showSound = structuredClone(savedShowSound);
     rebuildTimeline();
@@ -491,6 +593,7 @@
     sequence = select.value === 'all';
     index = sequence ? 0 : Number(select.value);
     position = 0;
+    standby = true;
     seek.value = 0;
     chapters.hidden = !sequence;
     $('sound-scope').textContent = sequence
@@ -500,6 +603,11 @@
     restoreAudio();
   }
   select.addEventListener('change', selectMode);
+  if (ending.rio && window.RIO_1984) {
+    $('river').src = window.RIO_1984;
+    style.setProperty('--river-mask', `url(${JSON.stringify(window.RIO_1984)})`);
+  }
+  $('coda').textContent = ending.texto;
   rebuildTimeline();
   selectMode();
   window.configurarPresencia($('composition'), reactToPresence);
