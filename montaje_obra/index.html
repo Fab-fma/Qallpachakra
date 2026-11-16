@@ -156,6 +156,9 @@
             <label>Irregularidad <output></output><input type="range" data-ajuste="sonido.irregularidad" min="0" max="65" data-unidad=" %" aria-label="Irregularidad"></label>
             <label>Variación de duración <output></output><input type="range" data-ajuste="sonido.variacion" min="0" max="35" data-unidad=" %" aria-label="Variación de duración"></label>
             <small>La acumulación empieza en ese porcentaje del recorrido. Con intervalos cortos, los soplos se superponen.</small>
+            <label>Pitido al cierre <output></output><input type="range" data-ajuste="sonido.pitido" min="0" max="100" data-unidad=" %" aria-label="Pitido al cierre"></label>
+            <label>Degradación digital <output></output><input type="range" data-ajuste="sonido.degradacion" min="0" max="100" data-unidad=" %" aria-label="Degradación digital"></label>
+            <small>El pitido crece desde el inicio. La degradación introduce artefactos en el fondo y los soplos. Cada efecto se apaga en 0 %.</small>
           </div>
           <label class="file-label" for="sound-file">Probar otra pista</label>
           <input id="sound-file" type="file" accept="audio/*,.wav,.mp3,.ogg,.m4a">

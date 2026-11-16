@@ -52,6 +52,11 @@ del paisaje.
    soplos un ligero desplazamiento a izquierda y derecha. Al acumularse se
    acercan al centro. En 0 %, quedan centrados. **Fondo en espera** ajusta el
    aire tenue que acompaña al río entre pasadas.
+   **Pitido al cierre** ajusta el pico de un tono agudo que empieza casi
+   imperceptible y queda expuesto cuando se apagan los soplos. **Degradación
+   digital** mezcla gradualmente una versión de menor resolución del fondo y
+   los soplos. En 0 %, el control correspondiente desactiva el efecto. Ambos
+   controles pertenecen a la mezcla de fondo y soplos.
 5. En **Filtros**, cambia la saturación, el brillo y el contraste finales.
    **Ver al máximo para ajustar** los aplica de inmediato. Usa **Empieza en** y
    **Duración del fundido** para decidir cuándo empieza el desgaste y cuánto
@@ -86,6 +91,7 @@ El archivo a editar es **`ajustes.js`**. `montaje.js` contiene el reproductor.
 | Intensidad del movimiento con la presencia | **Imagen → Paralaje** o `FUNCION.paralaje` |
 | Sonido compartido durante toda la obra | `FUNCION.sonido` |
 | Rampa de volumen desde el inicio hasta el cierre | `sonido.nivelInicial` |
+| Intensidad del pitido y de la degradación digital | `sonido.pitido`, `sonido.degradacion` |
 | Grano inicial, antes de la expansión, al final e intervalo | `textura.granoHistorico`, `textura.granoAntesExpansion`, `textura.grano`, `textura.intervalo` |
 | Volumen de fondo y punto donde empieza la acumulación | `sonido.fondo`, `sonido.desde` |
 | Soplos y variaciones | `sonido.volumen`, `sonido.intervalo`, `sonido.intervaloFinal`, `sonido.irregularidad`, `sonido.variacion` |

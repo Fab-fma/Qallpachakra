@@ -22,7 +22,10 @@
 
   // El archivo de ajustes es la versión guardada. La interfaz edita esta copia.
   const filterDefaults = {entrada: 0, fundido: 1, saturacion: 100, brillo: 100, contraste: 100, vinetado: 0};
-  const soundDefaults = {ritmo: 1, fondo: 28, desde: 58, intervaloFinal: .65, irregularidad: 38, variacion: 20, nivelInicial: 55, estereo: 0, espera: 0};
+  const soundDefaults = {
+    ritmo: 1, fondo: 28, desde: 58, intervaloFinal: .65, irregularidad: 38,
+    variacion: 20, nivelInicial: 55, estereo: 0, espera: 0, pitido: 0, degradacion: 0,
+  };
   const saved = structuredClone(initial);
   for (const place of saved) {
     place.filtros = {...filterDefaults, ...place.filtros};

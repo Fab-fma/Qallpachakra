@@ -7,6 +7,7 @@ const sonidoBase = {
   entrada: 4, volumen: 65, fondo: 28,
   intervalo: 8, intervaloFinal: .65, desde: 58,
   irregularidad: 38, variacion: 20, nivelInicial: 55, estereo: 24,
+  pitido: 42, degradacion: 72,
 };
 const filtrosBase = { entrada: 28, fundido: 28, saturacion: 62, brillo: 88, contraste: 100, vinetado: 30 };
 const resonanciaBase = { archivo: '../cerebro.png', entrada: 44, fundido: 15, opacidad: 21 };
